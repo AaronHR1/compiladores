@@ -1,0 +1,92 @@
+package fes.aragon.compilador;
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+action code {:
+    public static ArrayList<String> salida = new ArrayList<>();
+    public static Stack<int[]> pilaBucle = new Stack<>();
+:};
+
+parser code {:
+    public static Lexico lex;
+
+    public void syntax_error(Symbol st) {
+        System.out.println("Error sintactico en linea "
+            + lex.getYyline() + " columna: " + lex.getYy_currentPos());
+    }
+
+    public static void compilar(String entrada, String salidaFes) throws Exception {
+        lex = new Lexico(new FileInputStream(new File(entrada)));
+        new parser(lex).parse();
+        PrintWriter pw = new PrintWriter(new FileWriter(salidaFes));
+        for (String linea : CUP$parser$actions.salida) {
+            pw.println(linea);
+        }
+        pw.close();
+        System.out.println("Compilacion exitosa: " + salidaFes);
+    }
+:};
+
+terminal INICIO, MOVER, ARRIBA, ABAJO, DERECHA, IZQUIERDA;
+terminal REPITA, HASTA, FIN, ASIG;
+terminal Integer NUMERO;
+terminal String  ID;
+
+non terminal programa;
+non terminal instrucciones;
+non terminal instruccion;
+non terminal Integer condicion;
+
+programa ::= instrucciones;
+
+instrucciones ::= instrucciones instruccion
+                | instruccion;
+
+instruccion ::=
+    INICIO NUMERO:f NUMERO:c
+    {: salida.add("coloca " + f + " " + c); :}
+
+    | ARRIBA
+    {: salida.add("arriba"); :}
+
+    | ABAJO
+    {: salida.add("abajo"); :}
+
+    | DERECHA
+    {: salida.add("derecha"); :}
+
+    | IZQUIERDA
+    {: salida.add("izquierda"); :}
+
+    | MOVER NUMERO:n
+    {: salida.add("mover " + n); :}
+
+    | FIN
+    {: salida.add("fin"); :}
+
+    | ID:v ASIG NUMERO:ini
+        {:
+            pilaBucle.push(new int[]{ini, salida.size()});
+        :}
+        REPITA instrucciones HASTA condicion:fin
+        {:
+            int[] ctx     = pilaBucle.pop();
+            int idxInicio = ctx[1];
+            int veces     = fin - ctx[0];
+
+            List<String> cuerpo = new ArrayList<>(
+                salida.subList(idxInicio, salida.size())
+            );
+            for (int i = 1; i < veces; i++) {
+                salida.addAll(cuerpo);
+            }
+
+            // Registrar en tabla de símbolos
+            TablaSimbolosHelper.agregar(v, String.valueOf(ctx[0]), String.valueOf(fin));
+        :}
+        ;
+
+condicion ::= ID:v ASIG NUMERO:n
+    {: RESULT = n; :}
+    ;

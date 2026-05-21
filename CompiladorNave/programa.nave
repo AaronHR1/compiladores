@@ -1,0 +1,8 @@
+inicio 1 1
+derecha
+a=1
+repita
+mover 2
+abajo
+hasta a=3
+fin
